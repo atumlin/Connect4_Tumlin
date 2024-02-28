@@ -16,114 +16,121 @@ class MyPlayer(Player):
         self.piece_color = piece_color
 
     def get_valid_moves(self, board):
+        # Return a list of column indices where a new piece can be placed
         return [col for col in range(self.cols) if board[0, col] == 0]
-    
+
     def simulate_move(self, board, move, maximizingPlayer):
-        new_board = board.copy() 
+        # Create a copy of the board to simulate the move without altering the original
+        new_board = board.copy()
+        # Check if the move is within the column range and the column is not full
         if isinstance(move, (int, np.int32, np.int64)) and 0 <= move < self.cols:
-            n_spots = sum(new_board[:, move] == 0)
+            n_spots = sum(new_board[:, move] == 0)  # Count empty spots in the column
             if n_spots:
+                # Place the piece for the current player at the lowest empty spot
                 new_board[n_spots - 1, move] = 1 if maximizingPlayer else -1
         return new_board
 
     def heuristic_evaluation(self, board):
+        weights = {2: 10, 3: 30, 4: 90}  # Weights for sequences of length 2, 3, and 4
+        blocked_sequence_penalty = -50  # Penalty for blocked sequences
         score = 0
-        board_to_check = np.concatenate((board, board[:, :self.connect_number-1]), axis=1) if self.cylinder else board
-        
+        board_extended = np.concatenate((board, board[:, :self.connect_number-1]), axis=1) if self.cylinder else board
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, -1), (-1, 1)]  # All 8 directions
+
         for row in range(self.rows):
             for col in range(self.cols * (2 if self.cylinder else 1) - (self.connect_number - 1)):
-                # Check sequences for both player and opponent
-                score += self.evaluate_sequence(board_to_check, row, col, True) - self.evaluate_sequence(board_to_check, row, col, False)
-        return score
+                for d_row, d_col in directions:
+                    for length, weight in weights.items():
+                        for player in [1, -1]:  # Assuming 1 is the player's piece, -1 is the opponent's
+                            extendable, blocked = self.count_sequence(board_extended, row, col, d_row, d_col, player, length)
+                            if player == 1:  # Adjusting score for the player
+                                score += extendable * weight
+                                score += blocked * blocked_sequence_penalty
+                            else:  # Adjusting score for the opponent
+                                score -= extendable * weight
+                                score -= blocked * blocked_sequence_penalty
 
-    def evaluate_sequence(self, board, row, col, player):
-        score = 0
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, -1), (-1, 1)] # Including all 8 directions for thoroughness
-        sequence_lengths = [2, 3, 4] # Lengths of interest
-
-        for length in sequence_lengths:
-            for d_row, d_col in directions:
-                if self.count_sequence(board, row, col, d_row, d_col, player, length):
-                    # Update scoring based on sequence length
-                    if length == 2:
-                        score_increment = 10
-                    elif length == 3:
-                        score_increment = 50
-                    else:  # length == 4
-                        score_increment = 100
-                    # If player's or opponent's sequence increment/decrement score
-                    score += score_increment * (1 if player else -1)
         return score
 
     def count_sequence(self, board, row, col, d_row, d_col, player, length):
-        total_seq = 0  # To keep track of sequences found
+        extendable_seq = 0
+        blocked_seq = 0
         for l in range(length):
-            # Calculate current position with wrap around for cylindrical logic
-            current_row = row + d_row*l
-            current_col = (col + d_col*l) % self.cols  # Wrap around using modulo for columns
-            
-            # Out of bounds check for rows only, columns are handled by wrap around
-            if not (0 <= current_row < self.rows):
-                return False
-            
-            # Checking sequence continuity based on player
-            if player:
-                if board[current_row, current_col] != 1:
-                    return False
-            else:
-                if board[current_row, current_col] != -1:
-                    return False
+            current_row = row + d_row * l
+            current_col = (col + d_col * l) % self.cols  # Handle cylindrical wrap for columns
+            if not (0 <= current_row < self.rows) or board[current_row, current_col] != player:
+                return (0, 0)  # If out of bounds or not matching piece, not a valid sequence
 
-        # Now, check for an open end considering cylindrical nature
-        # Forward direction
-        next_col_forward = (col + d_col*length) % self.cols
-        if 0 <= row + d_row*length < self.rows and board[row + d_row*length, next_col_forward] == 0:
-            total_seq += 1
+        # Check for an open or blocked end after the sequence
+        next_row = current_row + d_row
+        next_col = (current_col + d_col) % self.cols
+        if 0 <= next_row < self.rows:
+            if board[next_row, next_col] == 0:
+                extendable_seq = 1
+            elif board[next_row, next_col] == -1*(player):  # represents the opposite player
+                blocked_seq = 1
 
-        # Backward direction (considering wrap around)
-        next_col_backward = (col - d_col) % self.cols
-        if 0 <= row - d_row < self.rows and board[row - d_row, next_col_backward] == 0:
-            total_seq += 1
+        # Similarly, check the start of the sequence for an open or blocked end
+        prev_row = row - d_row
+        prev_col = (col - d_col) % self.cols
+        if 0 <= prev_row < self.rows:
+            if board[prev_row, prev_col] == 0:
+                extendable_seq = 1
+            elif board[prev_row, prev_col] == -1*(player):
+                blocked_seq = 1
 
-        return total_seq > 0  # Return True if there's at least one open end
-
+        return (extendable_seq, blocked_seq)
 
 
     def minimax(self, board, depth, alpha, beta, maximizingPlayer):
+        # Get all valid moves for the current board state
         valid_moves = self.get_valid_moves(board)
-        if not valid_moves:  # No valid moves means game is over
-            return 0, None
         
-        if depth == 0:
+        # Base case: no valid moves or maximum depth reached
+        if not valid_moves or depth == 0:
+            # Evaluate the heuristic value of the board
             return self.heuristic_evaluation(board), None
-       
+
         if maximizingPlayer:
+            # Initialize the maximum evaluation score and best move
             maxEval = float('-inf')
-            best_move = random.choice(valid_moves)
+            best_move = random.choice(valid_moves)  # Choose a random move as the best move initially
             for move in valid_moves:
+                # Simulate the move for the maximizing player
                 new_board = self.simulate_move(board, move, maximizingPlayer)
+                # Recursively call minimax for the minimizing player
                 eval, _ = self.minimax(new_board, depth - 1, alpha, beta, False)
+                # Update maxEval and best_move if a better evaluation is found
                 if eval > maxEval:
                     maxEval = eval
                     best_move = move
+                # Update alpha
                 alpha = max(alpha, eval)
+                # Alpha-beta pruning
                 if beta <= alpha:
                     break
             return maxEval, best_move
         else:
+            # Initialize the minimum evaluation score and best move for minimizing player
             minEval = float('inf')
             best_move = random.choice(valid_moves)
             for move in valid_moves:
-                new_board = self.simulate_move(board, move, maximizingPlayer) 
+                # Simulate the move for the minimizing player
+                new_board = self.simulate_move(board, move, maximizingPlayer)
+                # Recursively call minimax for the maximizing player
                 eval, _ = self.minimax(new_board, depth - 1, alpha, beta, True)
+                # Update minEval and best_move if a better evaluation is found
                 if eval < minEval:
                     minEval = eval
                     best_move = move
+                # Update beta
                 beta = min(beta, eval)
+                # Alpha-beta pruning
                 if beta <= alpha:
                     break
             return minEval, best_move
 
     def play(self, board):
+        # Find the best move using minimax with a depth of 3
         _, best_move = self.minimax(board, 3, float('-inf'), float('inf'), True)
         return best_move

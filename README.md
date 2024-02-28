@@ -39,3 +39,43 @@ p1, p2 are the string names of the modules containing the player object.
 * If the player is in a nested module. For example if you'd need to write from players.simple import Dumbo, then specify the player as players.simple/Dumbo.
 
 A Jupiter Notebook, play.ipynb, is provided along with some dummy players to learn how to use the Connect4Board class to set up a game between two players.
+
+
+## Minimax & Alpha-Beta Search
+For Part 1 of the connect 5 assignment, I implemented the  minimax algorithm with alpha-beta pruning. The minimax function is a recursive algorithm that evaluates the game state to determine the best possible move for a player. It alternates between maximizing and minimizing players, assuming that both players play optimally. The function uses alpha-beta pruning to skip the evaluation of branches that cannot possibly influence the final decision. 
+
+### Parameters
+* board: The current state of the game board as a 2D array or matrix. Each element of the array represents a cell on the game board.
+* depth: The maximum depth of the game tree to explore. A larger depth results in a more thorough search but increases computation time.
+* alpha: The best already explored option along the path to the root for the maximizer. Initially, this is set to negative infinity.
+* beta: The best already explored option along the path to the root for the minimizer. Initially, this is set to positive infinity.
+* maximizingPlayer: A boolean value indicating whether the current move is for the maximizing player (True) or the minimizing player (False).
+
+### Return Value
+The minimax function returns a tuple containing two elements:
+
+* The first element is the score of the board, representing the best achievable outcome from the current game state for the player making the move.
+* The second element is the best move to achieve that outcome, represented as an index or coordinate on the game board.
+
+### Helper Functions
+* get_valid_moves(board): Returns a list of all valid moves for the current player given the state of the game board.
+* simulate_move(board, move, maximizingPlayer): Returns a new game board state after applying the given move for the current player.
+* heuristic_evaluation(board): Evaluates the game board and returns a score based on the current state from the perspective of the maximizing player.
+
+## Heuristic Function
+I used this [link](https://www.cs.cornell.edu/boom/2001sp/Anvari/Anvari.htm) as a resource when thinking of my heuristic function.
+
+The function scores the board by assessing the number of contiguous lines of pieces for both the player and its opponent. Each line's score is determined based on its length, with the following rationale:
+
+* Sequences are weighted to reflect their potential impact on the game. Shorter sequences have lower weights, while longer sequences, closer to achieving a win, are given exponentially increasing importance.
+* The evaluation prioritizes open sequences where additional pieces can be added, recognizing that sequences blocked by the opponent's pieces offer limited strategic value moving forward.
+* The cylindrical dynamic of the board is taken into account when measuring the count sequences. 
+
+Weights are assigned as follows:
+
+* 10 points for two in a row.
+* 30 points for three in a row.
+* 90 points for four in a row.
+* -50 for blocked rows. 
+
+This is a basic heuristic function which performs decently well against the SmartRandom player. An example of this play can be seen in play.ipynb. Additional adjustments will be needed before the competition. 
