@@ -4,9 +4,6 @@ import numpy as np
 
 from player import Player 
 
-
-
-
 class Random(Player):
     '''
     Drop the disc randomly on any of the columns of the board
@@ -115,7 +112,6 @@ class DropLowest(Player):
     def play(self, board: np.ndarray) -> int:
         col_filled=self.cols_filled(board)
         return np.argmin(col_filled)
-    
 
     def cols_filled(self, board: np.ndarray) -> np.ndarray:
         return np.sum(board!=0,axis=0)
