@@ -56,22 +56,37 @@ class MyPlayer(Player):
         return score
 
     def count_sequence(self, board, row, col, d_row, d_col, player, length):
+        total_seq = 0  # To keep track of sequences found
         for l in range(length):
-            if not (0 <= row + d_row*l < self.rows and 0 <= col + d_col*l < board.shape[1]):
-                return False # Out of bounds
+            # Calculate current position with wrap around for cylindrical logic
+            current_row = row + d_row*l
+            current_col = (col + d_col*l) % self.cols  # Wrap around using modulo for columns
+            
+            # Out of bounds check for rows only, columns are handled by wrap around
+            if not (0 <= current_row < self.rows):
+                return False
+            
+            # Checking sequence continuity based on player
             if player:
-                if board[row + d_row*l, col + d_col*l] != 1:
-                    return False # Sequence broken
+                if board[current_row, current_col] != 1:
+                    return False
             else:
-                if board[row + d_row*l, col + d_col*l] != -1:
-                    return False # Sequence broken
-        # Check for open ends only if sequence is within the original board boundaries for non-cylindrical logic
-        if not self.cylinder or (self.cylinder and 0 <= col + d_col*length < self.cols):
-            if 0 <= row + d_row*length < self.rows and 0 <= col + d_col*length < board.shape[1] and board[row + d_row*length, col + d_col*length] == 0:
-                return True
-            if 0 <= row - d_row < self.rows and 0 <= col - d_col < board.shape[1] and board[row - d_row, col - d_col] == 0:
-                return True
-        return False
+                if board[current_row, current_col] != -1:
+                    return False
+
+        # Now, check for an open end considering cylindrical nature
+        # Forward direction
+        next_col_forward = (col + d_col*length) % self.cols
+        if 0 <= row + d_row*length < self.rows and board[row + d_row*length, next_col_forward] == 0:
+            total_seq += 1
+
+        # Backward direction (considering wrap around)
+        next_col_backward = (col - d_col) % self.cols
+        if 0 <= row - d_row < self.rows and board[row - d_row, next_col_backward] == 0:
+            total_seq += 1
+
+        return total_seq > 0  # Return True if there's at least one open end
+
 
 
     def minimax(self, board, depth, alpha, beta, maximizingPlayer):
