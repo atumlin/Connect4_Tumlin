@@ -20,6 +20,7 @@ class MyPlayer(Player):
         return [col for col in range(self.cols) if board[0, col] == 0]
 
     def simulate_move(self, board, move, maximizingPlayer):
+        print(f'Maximizing Player: {maximizingPlayer}')
         # Create a copy of the board to simulate the move without altering the original
         new_board = board.copy()
         # Check if the move is within the column range and the column is not full
