@@ -26,7 +26,8 @@ class MCTSNode:
                 new_board[row, move] = player
                 break
         return new_board
-
+    
+    # Methods utilizied from connect4.py
     def check_config(self, board, config):
         b1, b2 = board.shape
         c1, c2 = config.shape
@@ -113,12 +114,11 @@ class MCTSPlayer(Player):
         self.piece_color_numeric = None  # Will hold +1 or -1 based on piece_color
 
     def setup(self, piece_color):
-        super().setup(piece_color)  # Call the parent setup if needed
+        super().setup(piece_color) 
         # Convert piece_color to numeric value
         self.piece_color_numeric = 1 if piece_color == '+' else -1
 
     def play(self, board):
-        # Ensure that piece_color_numeric is set
         if self.piece_color_numeric is None:
             raise ValueError("Player color not set. Please call setup before play.")
         
@@ -142,6 +142,5 @@ class MCTSPlayer(Player):
             # Backpropagation
             node.backpropagate(outcome)
         
-        # After completing the simulations, select the best move at the root
         best_move = root.best_child(c_param=0).move
         return best_move

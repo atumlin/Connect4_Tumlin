@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import time
 from player import Player
 
 class MyPlayer(Player):
@@ -11,6 +12,7 @@ class MyPlayer(Player):
         self.timeout_move = timeout_move
         self.max_invalid_moves = max_invalid_moves
         self.cylinder = cylinder
+        self.start_time = 0
 
     def setup(self, piece_color):
         self.piece_color = piece_color
@@ -84,6 +86,9 @@ class MyPlayer(Player):
 
 
     def minimax(self, board, depth, alpha, beta, maximizingPlayer):
+        if time.time() - self.start_time > self.timeout_move - 0.1: 
+            return 0, None  # Return a neutral value and no move if timeout is near
+        
         # Get all valid moves for the current board state
         valid_moves = self.get_valid_moves(board)
         
@@ -132,6 +137,6 @@ class MyPlayer(Player):
             return minEval, best_move
 
     def play(self, board):
-        # Find the best move using minimax with a depth of 3
+        self.start_time = time.time()  # Record the start time
         _, best_move = self.minimax(board, 3, float('-inf'), float('inf'), True)
         return best_move
