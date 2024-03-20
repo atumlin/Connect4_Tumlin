@@ -79,3 +79,38 @@ Weights are assigned as follows:
 * -50 for blocked rows. 
 
 This is a basic heuristic function which performs decently well against the SmartRandom player. An example of this play can be seen in play.ipynb. Additional adjustments will be needed before the competition. 
+
+## Monte Carlo Tree Search
+My MCTSPlayer utilizes the Monte Carlo Tree Search (MCTS) algorithm to make informed decisions. MCTS is a heuristic search algorithm widely used in decision-making processes, particularly in game-playing AI. It combines the precision of tree search with the generality of random sampling.
+
+#### Implementation Details:
+
+- **Board Representation**: The game board is represented using a NumPy array, enabling efficient manipulation and state representation. The board size is dynamically set based on `ROWS`, `COLS`, and the `CONNECT_NUMBER` required to win the game.
+
+- **Node Structure**: Each node in the MCTS tree represents a potential game state, including information about the board configuration, the player whose turn it is, the move that led to this state, and statistics about wins and visits for the node.
+
+- **Expansion Strategy**: New child nodes are added to the tree by simulating valid moves from the current state. Each child node represents a potential future state of the game.
+
+- **Simulation**: For each explored node, the algorithm simulates random playouts from the node's state to determine the outcome of potential moves. This simulation continues until a win, loss, or draw is reached.
+
+- **Selection**: Nodes are selected based on a balance between exploration and exploitation, guided by the Upper Confidence Bound (UCB1) applied to trees. This ensures that the algorithm explores less-visited nodes while also considering nodes with high win rates.
+
+- **Backpropagation**: After each simulation, the outcome is propagated back up the tree, updating the win/visit statistics of each node along the path.
+
+- **Decision Making**: When it's time to make a move, the algorithm selects the child of the root node with the highest win rate, translating this choice into the next move in the game.
+
+#### Parameters:
+
+- `player`: Indicates which player the node represents, with 1 for the AI agent and -1 for the opponent.
+- `cols` (COLS): The number of columns in the game board.
+- `connect_number` (CONNECT_NUMBER): The number of connected pieces required to win.
+- `cylinder`: A boolean indicating whether the board wraps around, connecting the left and right edges to allow for cylindrical win conditions.
+- `c_param`: Exploration parameter for the UCB1 formula, balancing exploration and exploitation. Set value to 1.4.
+
+### Results:
+After testing on my machine, results show that MCTSPlayer wins against SmartRandom player a majority of the time. Results are shown below.
+![Results from MCTSPlayer vs. SmartRandom](imgs/MCTSPlayer_Results.png)
+
+## Fixes
+Attempted to fix the timeout issues from Assignment 1 in MyPlayer class. Added the lines 89-91 and 141-144 for this simple fix. After editing this MyPlayer consistently beat the SmartRandom player. Results are shown below.
+![Results from MyPlayer vs. SmartRandom](imgs/MyPlayer_Results.png)

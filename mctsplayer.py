@@ -27,7 +27,7 @@ class MCTSNode:
                 break
         return new_board
     
-    # Methods utilizied from connect4.py
+    # Method utilizied from connect4.py
     def check_config(self, board, config):
         b1, b2 = board.shape
         c1, c2 = config.shape
@@ -41,6 +41,7 @@ class MCTSNode:
                     return True, board
         return False, board
 
+    # Method utilizied from connect4.py
     def check_if_winner(self, board):
         if self.cylinder:
             board = np.concatenate((board, board[:, :self.connect_number-1]), axis=1)
