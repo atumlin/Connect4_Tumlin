@@ -1,102 +1,125 @@
 import numpy as np
 import random
-from player import Player
-from myplayer import MyPlayer  # Assuming your MyPlayer class is in a file named myplayer.py
+import time
+from player import Player, ROWS, COLS, CONNECT_NUMBER
+from connect4 import Connect4Board
 
-class MCTSNode:
-    def __init__(self, board, move=None, parent=None, player=1, cols=None):
+class Node:
+    def __init__(self, board, move, parent, player, connect4board):
         self.board = board
         self.move = move
         self.parent = parent
         self.children = []
         self.wins = 0
         self.visits = 0
-        self.cols = cols
         self.untried_moves = self.get_valid_moves(board)
-        self.player = player  # 1 or -1
+        self.player = player
+        self.connect4board = connect4board
 
     def get_valid_moves(self, board):
         return [col for col in range(board.shape[1]) if board[0, col] == 0]
-    
-    def simulate_move(self, board, move, maximizingPlayer):
-        # Create a copy of the board to simulate the move without altering the original
-        new_board = board.copy()
-        # Check if the move is within the column range and the column is not full
-        if isinstance(move, (int, np.int32, np.int64)) and 0 <= move < self.cols:
-            n_spots = sum(new_board[:, move] == 0)  # Count empty spots in the column
-            if n_spots:
-                # Place the piece for the current player at the lowest empty spot
-                new_board[n_spots - 1, move] = 1 if maximizingPlayer else -1
-        return new_board
 
+    def is_terminal(self):
+        # Directly use the board state without multiplying by self.player
+        winner_board = self.connect4board.check_if_winner(self.board)
+        if winner_board is not None:
+            return True  # Terminal state (win)
+        if not np.any(self.board == 0):
+            return True  # Terminal state (draw)
+        return False  # Not a terminal state
+
+    def uct_select_child(self):
+        # Use the UCT formula to select a child node
+        best_value = -float('inf')
+        best_node = None
+        for child in self.children:
+            uct_value = child.wins / child.visits + np.sqrt(2 * np.log(self.visits) / child.visits)
+            if uct_value > best_value:
+                best_value = uct_value
+                best_node = child
+        return best_node
+    
     def expand(self):
-        # Choose a random untried move
-        move = self.untried_moves.pop(random.randrange(len(self.untried_moves)))
-        new_board = self.simulate_move(self.board, move, True)
-        child_node = MCTSNode(new_board, move=move, parent=self, player=-self.player)
+        move = self.untried_moves.pop()
+        new_board = self.simulate_move(self.board, move, self.player)
+        child_node = Node(new_board, move, self, -self.player, self.connect4board)
         self.children.append(child_node)
         return child_node
+
+    def simulate_move(self, board, move, player):
+        new_board = board.copy()
+        for row in range(board.shape[0] - 1, -1, -1):
+            if new_board[row, move] == 0:
+                new_board[row, move] = player
+                return new_board
+        return new_board
 
     def update(self, result):
         self.visits += 1
         self.wins += result
 
-    def is_fully_expanded(self):
-        return len(self.untried_moves) == 0
-
-    def best_child(self, c_param=1.4):
-        # UCT formula to select the best child
-        choices_weights = [
-            (child.wins / child.visits) + c_param * np.sqrt((2 * np.log(self.visits) / child.visits))
-            for child in self.children
-        ]
-        return self.children[np.argmax(choices_weights)]
-
-    def rollout_policy(self, possible_moves):
-        # Random rollout policy
-        return possible_moves[np.random.randint(len(possible_moves))]
-
-    def rollout(self):
-        current_rollout_board = self.board
-        while MyPlayer.get_valid_moves(current_rollout_board):
-            possible_moves = MyPlayer.get_valid_moves(current_rollout_board)
-            move = self.rollout_policy(possible_moves)
-            current_rollout_board = self.simulate_move(current_rollout_board, move, True)
-            if MyPlayer.check_for_win(current_rollout_board, move):  # You need to implement this
-                return 1
-        return 0  # Draw or loss
-
-    def backpropagate(self, result):
-        self.update(result)
-        if self.parent:
-            self.parent.backpropagate(-result)
-
-class MCTSPlayer(MyPlayer):
+class MCTSPlayer(Player):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
- 
-    def piece_color_to_num(self, piece_color):
-        return 1 if piece_color == '+' else -1
+        self.connect4board = Connect4Board(rows=self.rows, cols=self.cols, connect_number=self.connect_number)
+
+    def select(self, node):
+        while not node.is_terminal():
+            if node.untried_moves:
+                return node.expand()
+            else:
+                node = node.uct_select_child()
+        return node
+
+    def rollout(self, node):
+        current_board = node.board.copy()
+        current_player = node.player
+        while True:
+            valid_moves = node.get_valid_moves(current_board)
+            if not valid_moves or node.is_terminal(): 
+                break
+            move = random.choice(valid_moves)
+            current_board = node.simulate_move(current_board, move, current_player)
+            current_player = -current_player
+        return self.game_result(current_board, node.player)
+
+    def backpropagate(self, node, result):
+        while node is not None:
+            node.update(result)
+            node = node.parent
+            result = -result  # The result alternates between players
 
     def play(self, board):
-        numeric_piece_color = self.piece_color_to_num(self.piece_color)
-        root = MCTSNode(board, player=numeric_piece_color, cols=self.cols)
-        for _ in range(self.timeout_move):  # Use the move timeout as the number of iterations
-            node = root
-            # Selection
-            while node.is_fully_expanded() and node.children:
-                node = node.best_child()
-            # Expansion
-            if not node.is_fully_expanded():
-                node = node.expand()
-            # Rollout
-            rollout_result = node.rollout()
-            # Backpropagation
-            node.backpropagate(rollout_result)
+        self.connect4board._board = board
 
-        best_move = root.best_child(c_param=0).move
+        root = Node(board, move=None, parent=None, player=1, connect4board=self.connect4board)
+
+        start_time = time.time()
+        while time.time() - start_time < self.timeout_move:
+            node = self.select(root)
+            result = self.rollout(node)
+            self.backpropagate(node, result)
+
+        # Select the move with the highest win ratio
+        best_move = max(root.children, key=lambda c: c.wins / c.visits if c.visits > 0 else -float('inf')).move
         return best_move
 
-    # TODO - implement this function
-    def check_for_win(self,board,move):
-        return True
+    def simulate_move(self, board, move, player):
+        # Use the process_move method from Connect4Board to simulate the move
+        is_valid, new_board = self.connect4board.process_move(move, board.copy())
+        if not is_valid:
+            raise ValueError(f"Simulated move {move} is not valid.")
+        return new_board * player  # Return the board with the move made
+
+    def game_result(self, board, player):
+        # Use the check_if_winner method from Connect4Board to get the game result
+        result_board = self.connect4board.check_if_winner(board)
+        if result_board is not None:
+            # Check for a win
+            if np.any(result_board == 2 * player):
+                return 1  # Current player won
+            elif np.any(result_board == 2 * -player):
+                return -1  # Opponent won
+        elif not np.any(board == 0):
+            return 0  # Draw
+        return None  # Game is ongoing
