@@ -86,6 +86,7 @@ class MyPlayer(Player):
 
 
     def minimax(self, board, depth, alpha, beta, maximizingPlayer):
+        # Added a timeout functionality to help with timeout errors
         if time.time() - self.start_time > self.timeout_move - 0.1: 
             return 0, None  # Return a neutral value and no move if timeout is near
         
@@ -138,5 +139,7 @@ class MyPlayer(Player):
 
     def play(self, board):
         self.start_time = time.time()  # Record the start time
-        _, best_move = self.minimax(board, 3, float('-inf'), float('inf'), True)
+        # Reduced depth for minimax to avoid timeouts. Quick fix solution.
+        # TODO - before competition implment more robust time method.
+        _, best_move = self.minimax(board, 2, float('-inf'), float('inf'), True)
         return best_move
