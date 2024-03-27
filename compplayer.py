@@ -5,6 +5,7 @@ from player import Player, ROWS, COLS, CONNECT_NUMBER
 
 MAX_DEPTH = 2
 
+# Node class for MCTS
 class MCTSNode:
     def __init__(self, board, parent=None, move=None, player=1, cols=COLS, rows=ROWS,connect_number=CONNECT_NUMBER, cylinder=True):
         self.board = np.copy(board)
@@ -113,7 +114,8 @@ class MCTSNode:
             heuristic_scores = []
             for move in valid_moves:
                 simulated_board = self.simulate_move(current_board, move, current_player)
-                score = self.heuristic_evaluation(simulated_board * current_player)  # Multiply by player to evaluate from the current player's perspective
+                # Multiply by player to evaluate from the current player's perspective
+                score = self.heuristic_evaluation(simulated_board * current_player) 
                 heuristic_scores.append(score)
             
             # Choose the move with the best score for the current player
@@ -133,9 +135,9 @@ class MCTSNode:
             # Update for next iteration
             depth += 1
 
-    
+    # Simplified heuristic from MyPlayer
     def heuristic_evaluation(self, board):
-        # Focus on weights for sequences that directly contribute to winning
+        # Focus on weights for sequences of 3 and 4
         weights = {3: 20, 4: 100}
         score = 0
         # Consider only the primary directions for simplicity
@@ -145,11 +147,10 @@ class MCTSNode:
             for row in range(self.rows):
                 for col in range(self.cols):
                     for d_row, d_col in directions:
-                        # Simplify the scoring based on sequence length, ignoring blockages
                         score += self.evaluate_sequence(board, row, col, d_row, d_col, player, weights)
-
         return score
-
+    
+    # Helper function to count pieces in a row
     def evaluate_sequence(self, board, row, col, d_row, d_col, player, weights):
         temp_score = 0
         for length, weight in weights.items():
@@ -184,10 +185,13 @@ class MCTSNode:
         choices_weights = [(child.wins / child.visits) + c_param * np.sqrt(2 * np.log(self.visits) / child.visits) for child in self.children]
         return self.children[np.argmax(choices_weights)]
 
+# The player agent for the competition
 class CompPlayer(Player):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.piece_color_numeric = None  # Will hold +1 or -1 based on piece_color
+    def __init__(self, rows, cols, connect_number, timeout_setup, timeout_move, max_invalid_moves, cylinder):
+        super().__init__(rows, cols, connect_number, timeout_setup, timeout_move, max_invalid_moves, cylinder)
+        self.timeout_setup = timeout_setup
+        self.timeout_move = timeout_move
+        self.piece_color_numeric = None  # Initialize with a default value
 
     def setup(self, piece_color):
         super().setup(piece_color) 
@@ -201,7 +205,10 @@ class CompPlayer(Player):
         # Initialize the root of the MCTS tree with the current state
         root = MCTSNode(board, player=self.piece_color_numeric, cols=self.cols, connect_number=self.connect_number, cylinder=self.cylinder)
         
-        NUM_SIMULATIONS = 20  # Adjust this number based on performance testing and time constraints
+        if self.timeout_setup == 1:
+            NUM_SIMULATIONS = 20  
+        else:
+            NUM_SIMULATIONS = 10 
     
         for _ in range(NUM_SIMULATIONS):
             node = root
