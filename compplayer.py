@@ -135,36 +135,40 @@ class MCTSNode:
 
     
     def heuristic_evaluation(self, board):
-        weights = {3: 10, 4: 100}  # Simplified weights
+        weights = {2: 10, 3: 30, 4: 90}  # Keep the original weights
         score = 0
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # Main directions: horizontal, vertical, diagonal
+        # Simplify by only extending the board if necessary
+        if self.cylinder:
+            board_extended = np.concatenate((board, board[:, :self.connect_number - 1]), axis=1)
+        else:
+            board_extended = board
 
-        for player in [1, -1]:  # Loop for both players
-            for row in range(self.rows):
-                for col in range(self.cols):
-                    for d_row, d_col in directions:
-                        sequence_count = self.simple_count_sequence(board, row, col, d_row, d_col, player)
-                        # Update score based on found sequences
-                        score += sequence_count * (weights[3] if sequence_count == 3 else 0) + (weights[4] if sequence_count >= 4 else 0)
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # Focus on primary directions for simplification
+        
+        for row in range(self.rows):
+            for col in range(self.cols):
+                for d_row, d_col in directions:
+                    for length, weight in weights.items():
+                        for player in [1, -1]:
+                            sequence_score = self.count_sequence(board_extended, row, col, d_row, d_col, player, length)
+                            # Directly apply weights without differentiating extendable or blocked
+                            if sequence_score > 0:
+                                score += sequence_score * weight * player
 
-        return score 
+        return score
 
-    def simple_count_sequence(self, board, row, col, d_row, d_col, player):
-        """Counts the maximum sequence length in one direction."""
-        max_length = 0
-        sequence_length = 0
-
-        for l in range(1, self.connect_number):  # Limit to max connect_number - 1 steps
-            current_row = row + d_row * l
-            current_col = col + d_col * l
-
-            if 0 <= current_row < self.rows and 0 <= current_col < self.cols and board[current_row, current_col] == player:
-                sequence_length += 1
-                max_length = max(max_length, sequence_length)
+    def count_sequence(self, board, row, col, d_row, d_col, player, length):
+        """Simplified sequence counting that focuses on detecting any sequence of specified length."""
+        max_sequence = 0
+        for l in range(length):
+            current_row, current_col = row + d_row * l, col + d_col * l
+            # Check bounds and if sequence continues
+            if 0 <= current_row < self.rows and 0 <= current_col < len(board[0]) and board[current_row, current_col] == player:
+                max_sequence += 1
             else:
-                break  # Stop if sequence is broken
+                break  # Break on first mismatch
+        return 1 if max_sequence == length else 0
 
-        return max_length
 
 
     def backpropagate(self, result):
