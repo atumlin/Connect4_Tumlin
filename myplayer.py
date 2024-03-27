@@ -20,6 +20,51 @@ class MyPlayer(Player):
     def get_valid_moves(self, board):
         # Return a list of column indices where a new piece can be placed
         return [col for col in range(self.cols) if board[0, col] == 0]
+    
+    # Method utilizied from connect4.py
+    def check_config(self, board, config):
+        b1, b2 = board.shape
+        c1, c2 = config.shape
+        for i in range(b1 - c1 + 1):
+            for j in range(b2 - c2 + 1):
+                if np.sum(board[i:i+c1, j:j+c2] * config) == self.connect_number:
+                    board[i:i+c1, j:j+c2][config == 1] = 2
+                    if self.cylinder:
+                        board[:, :self.connect_number-1][board[:, -self.connect_number+1:] == 2] = 2
+                        board = board[:, :-self.connect_number+1]
+                    return True, board
+        return False, board
+
+    # Method utilizied from connect4.py
+    def check_if_winner(self, board):
+        if self.cylinder:
+            board = np.concatenate((board, board[:, :self.connect_number-1]), axis=1)
+
+        # Horizontal checking
+        config = np.ones((1, self.connect_number), dtype=int)
+        end, board = self.check_config(board, config)
+        if end:
+            return board
+
+        # Vertical checking
+        config = np.ones((self.connect_number, 1), dtype=int)
+        end, board = self.check_config(board, config)
+        if end:
+            return board
+
+        # Diagonal checking
+        config = np.eye(self.connect_number, dtype=int)
+        end, board = self.check_config(board, config)
+        if end:
+            return board
+
+        # Anti-diagonal checking
+        config = np.fliplr(np.eye(self.connect_number, dtype=int))
+        end, board = self.check_config(board, config)
+        if end:
+            return board
+
+        return None
 
     def simulate_move(self, board, move, maximizingPlayer):
         # print(f'Maximizing Player: {maximizingPlayer}')
