@@ -3,7 +3,7 @@ import random
 import time
 from player import Player, ROWS, COLS, CONNECT_NUMBER
 
-MAX_DEPTH = 5
+MAX_DEPTH = 2
 
 class MCTSNode:
     def __init__(self, board, parent=None, move=None, player=1, cols=COLS, rows=ROWS,connect_number=CONNECT_NUMBER, cylinder=True):
@@ -135,55 +135,37 @@ class MCTSNode:
 
     
     def heuristic_evaluation(self, board):
-        weights = {2: 10, 3: 30, 4: 90}  # Weights for sequences of length 2, 3, and 4
-        blocked_sequence_penalty = -50  # Penalty for blocked sequences
+        weights = {3: 10, 4: 100}  # Simplified weights
         score = 0
-        board_extended = np.concatenate((board, board[:, :self.connect_number-1]), axis=1) if self.cylinder else board
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, -1), (-1, 1)]  # All 8 directions
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # Main directions: horizontal, vertical, diagonal
 
-        for row in range(self.rows):
-            for col in range(self.cols * (2 if self.cylinder else 1) - (self.connect_number - 1)):
-                for d_row, d_col in directions:
-                    for length, weight in weights.items():
-                        for player in [1, -1]:  # Assuming 1 is the player's piece, -1 is the opponent's
-                            extendable, blocked = self.count_sequence(board_extended, row, col, d_row, d_col, player, length)
-                            if player == 1:  # Adjusting score for the player
-                                score += extendable * weight
-                                score += blocked * blocked_sequence_penalty
-                            else:  # Adjusting score for the opponent
-                                score -= extendable * weight
-                                score -= blocked * blocked_sequence_penalty
+        for player in [1, -1]:  # Loop for both players
+            for row in range(self.rows):
+                for col in range(self.cols):
+                    for d_row, d_col in directions:
+                        sequence_count = self.simple_count_sequence(board, row, col, d_row, d_col, player)
+                        # Update score based on found sequences
+                        score += sequence_count * (weights[3] if sequence_count == 3 else 0) + (weights[4] if sequence_count >= 4 else 0)
 
-        return score
+        return score 
 
-    def count_sequence(self, board, row, col, d_row, d_col, player, length):
-        extendable_seq = 0
-        blocked_seq = 0
-        for l in range(length):
+    def simple_count_sequence(self, board, row, col, d_row, d_col, player):
+        """Counts the maximum sequence length in one direction."""
+        max_length = 0
+        sequence_length = 0
+
+        for l in range(1, self.connect_number):  # Limit to max connect_number - 1 steps
             current_row = row + d_row * l
-            current_col = (col + d_col * l) % self.cols  # Handle cylindrical wrap for columns
-            if not (0 <= current_row < self.rows) or board[current_row, current_col] != player:
-                return (0, 0)  # If out of bounds or not matching piece, not a valid sequence
+            current_col = col + d_col * l
 
-        # Check for an open or blocked end after the sequence
-        next_row = current_row + d_row
-        next_col = (current_col + d_col) % self.cols
-        if 0 <= next_row < self.rows:
-            if board[next_row, next_col] == 0:
-                extendable_seq = 1
-            elif board[next_row, next_col] == -1*(player):  # represents the opposite player
-                blocked_seq = 1
+            if 0 <= current_row < self.rows and 0 <= current_col < self.cols and board[current_row, current_col] == player:
+                sequence_length += 1
+                max_length = max(max_length, sequence_length)
+            else:
+                break  # Stop if sequence is broken
 
-        # Similarly, check the start of the sequence for an open or blocked end
-        prev_row = row - d_row
-        prev_col = (col - d_col) % self.cols
-        if 0 <= prev_row < self.rows:
-            if board[prev_row, prev_col] == 0:
-                extendable_seq = 1
-            elif board[prev_row, prev_col] == -1*(player):
-                blocked_seq = 1
+        return max_length
 
-        return (extendable_seq, blocked_seq)
 
     def backpropagate(self, result):
         self.visits += 1
@@ -220,8 +202,9 @@ class CompPlayer(Player):
         # Initialize the root of the MCTS tree with the current state
         root = MCTSNode(board, player=self.piece_color_numeric, cols=self.cols, connect_number=self.connect_number, cylinder=self.cylinder)
         
-        # # Simulate within the given time or move limit
-        for _ in range(self.timeout_move):
+        NUM_SIMULATIONS = 20  # Adjust this number based on performance testing and time constraints
+    
+        for _ in range(NUM_SIMULATIONS):
             node = root
             depth = 0  # Initialize depth for each new simulation
 
