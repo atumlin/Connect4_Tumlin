@@ -3,7 +3,7 @@ import random
 import time
 from player import Player, ROWS, COLS, CONNECT_NUMBER
 
-MAX_DEPTH = 2
+MAX_DEPTH = 10
 
 # Node class for MCTS
 class MCTSNode:
@@ -137,33 +137,45 @@ class MCTSNode:
 
     # Simplified heuristic from MyPlayer
     def heuristic_evaluation(self, board):
-        # Focus on weights for sequences of 3 and 4
-        weights = {3: 20, 4: 100}
+        # Adjust weights for creating sequences
+        weights = {3: 50, 4: 100}
+        # Increased weight for blocking an opponent's sequence of 3
+        blocking_weight = 200
         score = 0
-        # Consider only the primary directions for simplicity
-        directions = [(0, 1), (1, 0), (1, 1), (1, -1)] 
 
-        for player in [1, -1]:
+        # Extend the board horizontally for cylindrical evaluation
+        board_extended = np.concatenate((board, board[:, :self.connect_number - 1]), axis=1)
+
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]  # Main directions including diagonals
+
+        for player in [1, -1]:  # Loop for both players
             for row in range(self.rows):
-                for col in range(self.cols):
+                # Adjust column range to consider extended board
+                for col in range(self.cols + self.connect_number - 1):
                     for d_row, d_col in directions:
-                        score += self.evaluate_sequence(board, row, col, d_row, d_col, player, weights)
+                        temp_score = self.evaluate_critical_sequence_cylindrical(board_extended, row, col, d_row, d_col, player, weights, blocking_weight if player == -1 else None)
+                        # Normalize score for cylindrical wraparound by player perspective
+                        score += temp_score * player
+
         return score
-    
-    # Helper function to count pieces in a row
-    def evaluate_sequence(self, board, row, col, d_row, d_col, player, weights):
+
+    def evaluate_critical_sequence_cylindrical(self, board, row, col, d_row, d_col, player, weights, blocking_weight=None):
         temp_score = 0
         for length, weight in weights.items():
             sequence_count = 0
             for l in range(length):
-                current_row, current_col = row + d_row * l, col + d_col * l
-                # Check if within bounds and matches the player
-                if 0 <= current_row < self.rows and 0 <= current_col < self.cols and board[current_row][current_col] == player:
+                current_row, current_col = row + d_row * l, (col + d_col * l) % self.cols  # Wrap around for cylindrical logic
+                if 0 <= current_row < self.rows and board[current_row][current_col] == player:
                     sequence_count += 1
                 else:
-                    break  # Stop this direction if sequence is broken
+                    break  # Sequence broken or out of bounds
             if sequence_count == length:
-                temp_score += weight * player
+                # Apply blocking weight for opponent's nearly complete sequences
+                if blocking_weight and player == -1 and length == 3:
+                    temp_score += blocking_weight
+                else:
+                    temp_score += weight
+
         return temp_score
 
 
@@ -205,10 +217,7 @@ class CompPlayer(Player):
         # Initialize the root of the MCTS tree with the current state
         root = MCTSNode(board, player=self.piece_color_numeric, cols=self.cols, connect_number=self.connect_number, cylinder=self.cylinder)
         
-        if self.timeout_setup == 1:
-            NUM_SIMULATIONS = 20  
-        else:
-            NUM_SIMULATIONS = 10 
+        NUM_SIMULATIONS = 10
     
         for _ in range(NUM_SIMULATIONS):
             node = root
