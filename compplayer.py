@@ -5,6 +5,8 @@ from player import Player, ROWS, COLS, CONNECT_NUMBER
 
 MAX_DEPTH = 10
 
+# To run 'compplayer/CompPlayer'
+
 # Node class for MCTS
 class MCTSNode:
     def __init__(self, board, parent=None, move=None, player=1, cols=COLS, rows=ROWS,connect_number=CONNECT_NUMBER, cylinder=True):
@@ -137,9 +139,7 @@ class MCTSNode:
 
     # Simplified heuristic from MyPlayer
     def heuristic_evaluation(self, board):
-        # Adjust weights for creating sequences
         weights = {3: 50, 4: 100}
-        # Increased weight for blocking an opponent's sequence of 3
         blocking_weight = 200
         score = 0
 
@@ -171,7 +171,7 @@ class MCTSNode:
                     break  # Sequence broken or out of bounds
             if sequence_count == length:
                 # Apply blocking weight for opponent's nearly complete sequences
-                if blocking_weight and player == -1 and length == 3:
+                if blocking_weight and player == -1 and length == 4:
                     temp_score += blocking_weight
                 else:
                     temp_score += weight
@@ -213,13 +213,15 @@ class CompPlayer(Player):
     def play(self, board):
         if self.piece_color_numeric is None:
             raise ValueError("Player color not set. Please call setup before play.")
-        
+
         # Initialize the root of the MCTS tree with the current state
         root = MCTSNode(board, player=self.piece_color_numeric, cols=self.cols, connect_number=self.connect_number, cylinder=self.cylinder)
-        
-        NUM_SIMULATIONS = 10
-    
-        for _ in range(NUM_SIMULATIONS):
+
+        start_time = time.time()
+        safe_margin = 0.2
+        time_limit = self.timeout_move - safe_margin
+
+        while time.time() - start_time < time_limit:
             node = root
             depth = 0  # Initialize depth for each new simulation
 
@@ -227,6 +229,10 @@ class CompPlayer(Player):
             while not node.untried_moves and node.children:
                 node = node.best_child()
                 depth += 1
+            
+            # Check if we're approaching the timeout limit before continuing.
+            if time.time() - start_time >= time_limit:
+                break
             
             # Expansion
             if node.untried_moves:
@@ -237,6 +243,7 @@ class CompPlayer(Player):
             
             # Backpropagation
             node.backpropagate(outcome)
-        
+
         best_move = root.best_child(c_param=0).move
         return best_move
+    

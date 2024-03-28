@@ -114,3 +114,20 @@ After testing on my machine, results show that MCTSPlayer wins against SmartRand
 ## Fixes
 Attempted to fix the timeout issues from Assignment 1 in MyPlayer class. Added the lines 89-91 and 141-144 for this simple fix. After editing this MyPlayer consistently beat the SmartRandom player. Results are shown below.
 ![Results from MyPlayer vs. SmartRandom](imgs/MyPlayer_Results.png)
+
+## Tournament Agent Overview
+For the tournament, I synthesized the Monte Carlo Tree Search (MCTS) strategy with a streamlined heuristic approach, derived from previous assignments, to construct a competitive agent for Connect 5. This agent is encapsulated in compplayer.py. It marries the optimal features of the MCTS framework with a simplified heuristic model to strike a balance between strategic depth and computational efficiency.
+
+### Initialization Instructions
+To deploy the tournament agent, initialize it as follows:
+```
+p1 = 'compplayer/CompPlayer'
+```
+
+## Tournament Performance Insights
+**Comprehensive details of the tournament outcomes are accessible in the repository, within the "Connect5_CompetitionResults.pdf", available  [here](./Connect5_CompetitionResults.pdf).**
+
+During the tournament, my agent did not perform as well as expected, primarily due to two reasons. Firstly, there was an oversight in the code regarding the 0.5-second move time limit, which necessitated last-minute code adjustments that lacked thorough validation. Secondly, the intricate decision-making algorithm of my agent, while sophisticated under normal conditions, struggled against simpler algorithms due to the constrained time limits. Many competitors used lightweight heuristics or solely implemented the minimax search, which, coupled with the tight execution windows, put my more complex MCTS + heuristic-based algorithm at a disadvantage. This was particularly evident under the stringent 1-second and 0.5-second move time constraints, preventing my agent from conducting exhaustive searches and, consequently, being outmaneuvered by less complex yet efficient algorithms.
+
+### Lessons Learned
+This experience highlights the importance of balancing the complexity of heuristic algorithms with the operational time constraints of a competitive environment. In situations where there is limited decision-making time, a more streamlined algorithm would be advantageous. On the other hand, environments that allow for extensive analysis time may benefit from the depth and thoroughness of complex algorithms like the one created here. Going forward, this insight will help in optimizing decision-making algorithms by ensuring efficiency while maintaining strategic depth in time-constrained settings.
