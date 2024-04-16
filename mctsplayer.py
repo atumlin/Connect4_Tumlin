@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import time
 from player import Player, ROWS, COLS, CONNECT_NUMBER
 
 class MCTSNode:
@@ -129,8 +130,11 @@ class MCTSPlayer(Player):
         # Initialize the root of the MCTS tree with the current state
         root = MCTSNode(board, player=self.piece_color_numeric, cols=self.cols, connect_number=self.connect_number, cylinder=self.cylinder)
         
-        # Simulate within the given time or move limit
-        for _ in range(self.timeout_move):
+        start_time = time.time()
+        safe_margin = 0.1
+        time_limit = self.timeout_move - safe_margin
+
+        while time.time() - start_time < time_limit:
             node = root
             # Selection
             while not node.untried_moves and node.children:
